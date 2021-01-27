@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-
+import 'dart:convert';
+import 'dart:math';
 import 'charts.dart';
+import 'gold.dart';
+import 'dart:async';
+import 'convert.dart';
 
 void main() {
   runApp(MyApp());
@@ -12,7 +16,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Demo',
+      title: 'We-Earn Finance',
       theme: ThemeData(
         // This is the theme of your application.
         //
@@ -25,17 +29,29 @@ class MyApp extends StatelessWidget {
         // is not restarted.
         primarySwatch: Colors.blue,
       ),
-      home: MyHomePage(title: 'We Earn Finance', p_idx: 0),
+      home: MyHomePage(),
+    );
+  }
+}
+
+class Model {
+  final double a;
+  final double b;
+  final String s;
+
+  Model._({this.a, this.b, this.s});
+
+  factory Model.fromJson(Map<String, dynamic> json) {
+    return new Model._(
+      a: json['a'].toDouble(),
+      b: json['b'].toDouble(),
+      s: json['s'],
     );
   }
 }
 
 class MyHomePage extends StatefulWidget {
-  MyHomePage(
-      {Key key = const Key("any_key"),
-      this.title = 'We Earn Finance',
-      this.p_idx = 0})
-      : super(key: key);
+  MyHomePage({Key key, this.title = 'We Earn Finance'}) : super(key: key);
 
   // This widget is the home page of your application. It is stateful, meaning
   // that it has a State object (defined below) that contains fields that affect
@@ -47,17 +63,19 @@ class MyHomePage extends StatefulWidget {
   // always marked "final".
 
   final String title;
-  final int p_idx;
 
   @override
   _MyHomePageState createState() => _MyHomePageState();
 }
 
-class _MyHomePageState extends State<MyHomePage>
-    with SingleTickerProviderStateMixin {
+class _MyHomePageState extends State<MyHomePage> {
+
+  Timer _timer;
+  bool dispos = false;
+
   List<List<String>> currencyPair = [
-    ["EUR-USD", "0", "0"],
     ["USD-TRY", "0", "0"],
+    ["EUR-USD", "0", "0"],
     ['EUR-TRY', "0", "0"],
     ['CAD-TRY', "0", "0"],
     ['GBP-TRY', "0", "0"],
@@ -75,268 +93,61 @@ class _MyHomePageState extends State<MyHomePage>
     ['SEK-TRY', "0", "0"]
   ];
 
-  List<List<String>> goldPair = [
-    ["GOLD-USD (OZ)", "0", "0"],
-    ["GOLD-USD (KG)", "0", "0"],
-    ['GOLD-EUR (KG)', "0", "0"],
-    ['GOLD-TRY (Gram)', "0", "0"],
-    ['GOLD(14K)-USD (OZ)', "0", "0"],
-    ['GOLD(22K)-USD (OZ)', "0", "0"],
-    ['SLIVER-USD (OZ)', "0", "0"],
-    ['SLIVER-TRY (Gram)', "0", "0"],
-    ['PLATINUM-USD (OZ)', "0", "0"],
-    ['PALLADIUM-USD (OZ)', "0", "0"]
-  ];
+  double round_to_4(double d)
+  {
+    double fac = pow(10.0, 5);
+    double x = d * fac/10.0;
+    fac = pow(10.0, 4);
+    return (x).round() / fac;
+  }
 
-  late TabController _controller;
-  int _selectedIndex = 0;
-
-  List<Widget> list = [
-    Tab(
-      icon: Image.asset(
-        'images/dollar_world_grid_selected.png',
-        width: 46.0,
-        height: 46.0,
-      ),
-      child: Text(
-        "Currency",
-        style: TextStyle(color: Color.fromRGBO(43, 73, 193, 0.4)),
-      ),
-    ),
-    Tab(
-        icon: Image.asset(
-          'images/gold-bars.png',
-          width: 46.0,
-          height: 46.0,
-        ),
-        child: Text(
-          "Gold",
-          style: TextStyle(color: Color.fromRGBO(127, 127, 127, 0.4)),
-        )),
-  ];
-
-  int ct = 0;
 
   void fetchPairValue() async {
-    for (int i = 0; i < currencyPair.length; i++) {
-      String c = currencyPair[i][0].toLowerCase();
-      final response = await http.get('https://www.currencyconverterrate.com/' +
-          c.substring(0, 3) +
-          '/' +
-          c.substring(4) +
-          '.html');
 
-      if (response.statusCode == 200) {
-        // If the call to the server was successful, parse the JSON
+    final response = await http.get('https://api.1forge.com/quotes?pairs=USD/TRY,EUR/USD,EUR/TRY,CAD/TRY,GBP/TRY,AUD/TRY,JPY/TRY,CHF/TRY,AED/TRY,USD/QAR,USD/BGN,DKK/TRY,USD/SAR,USD/CNY,USD/RUB,NOK/TRY,SEK/TRY'
+        '&api_key=KatWbQa9sDFmYQ25LmtAMlGau5xKSWIe');
 
-        String htmlToParse = response.body;
-        int idx1 = htmlToParse.indexOf("Bid Price") + 11; //
-        int idx2 = htmlToParse.indexOf("Ask Price", idx1) + 11;
+    if (response.statusCode == 200) {
+      // If the call to the server was successful, parse the JSON
 
-        int idx3 = htmlToParse.indexOf("<", idx1);
-        int idx4 = htmlToParse.indexOf("<", idx2);
+      /*[{"p":1.21856,"a":1.22201,"b":1.2151,"s":"EUR/USD","t":1608934265255},{"p":7.5575,"a":7.5625,"b":7.5525,"s":"USD/TRY","t":1608908143931},{"p":9.26299,"a":9.27256,"b":9.25342,"s":"EUR/TRY","t":1608879625018},
+        {"p":6.037513,"a":6.039437,"b":6.035589,"s":"CAD/TRY","t":1608933871214},{"p":10.297348,"a":10.316695,"b":10.278,"s":"GBP/TRY","t":1608879629130},{"p":5.7738,"a":5.7885,"b":5.7591,"s":"AUD/TRY","t":1608879564069},
+        {"p":0.07303697,"a":0.07308529,"b":0.07298864,"s":"JPY/TRY","t":1608908143937},{"p":8.529457,"a":8.538269,"b":8.520645,"s":"CHF/TRY","t":1608879624835},
+        {"p":2.057672,"a":2.059033,"b":2.056311,"s":"AED/TRY","t":1608908143934},{"p":3.6413,"a":3.642,"b":3.6405,"s":"USD/QAR","t":1608847204796},{"p":1.6069188,"a":1.61497,"b":1.5988675,"s":"USD/BGN","t":1608861813327},
+        {"p":1.2452666,"a":1.2465531,"b":1.24398,"s":"DKK/TRY","t":1608879625024},{"p":3.752353,"a":3.755106,"b":3.7496,"s":"USD/SAR","t":1608879629251},{"p":6.5418,"a":6.5428,"b":6.5408,"s":"USD/CNY","t":1608909993197},
+        {"p":74.06,"a":74.095,"b":74.025,"s":"USD/RUB","t":1608930021562},{"p":0.87736,"a":0.878167,"b":0.876553,"s":"NOK/TRY","t":1608847205092},{"p":0.917155,"a":0.918032,"b":0.916278,"s":"SEK/TRY","t":1608847203927}]*/
 
-        setState(() {
-          currencyPair[i][1] = htmlToParse.substring(idx1, idx3);
-          currencyPair[i][2] = htmlToParse.substring(idx2, idx4);
-        });
-      } else {
-        // If that call was not successful, throw an error.
-        throw Exception('Failed to load post');
-      }
+      List<Model> list  = json.decode(response.body).map<Model>((data) => Model.fromJson(data))
+          .toList();
+
+      setState(() {
+
+        currencyPair[0][1] = round_to_4(list[0].b).toString();
+        currencyPair[0][2] = round_to_4(list[0].a).toString();
+
+        for (int i = 1; i < currencyPair.length; i++) {
+
+          if(list[i].s.startsWith('USD'))
+          {
+            currencyPair[i][1] = round_to_4(list[i].b/list[1].b).toString();
+            currencyPair[i][2] = round_to_4(list[i].a/list[1].a).toString();
+          }
+          else {
+            currencyPair[i][1] = round_to_4(list[i].b).toString();
+            currencyPair[i][2] = round_to_4(list[i].a).toString();
+          }
+        }
+      });
+    } else {
+      // If that call was not successful, throw an error.
+      throw Exception('Failed to load post');
     }
   }
 
-  void fetchMetalValue() async {
-    var response =
-        await http.get('https://www.investing.com/currencies/xau-usd');
-
-    if (response.statusCode == 200) {
-      // If the call to the server was successful, parse the JSON
-
-      String htmlToParse = response.body;
-      int idx1 = htmlToParse.indexOf("bid\">") + 5; //
-      int idx2 = htmlToParse.indexOf("ask\">", idx1) + 5;
-
-      int idx3 = htmlToParse.indexOf("<", idx1);
-      int idx4 = htmlToParse.indexOf("<", idx2);
-
-      setState(() {
-        goldPair[0][1] = htmlToParse.substring(idx1, idx3);
-        goldPair[0][2] = htmlToParse.substring(idx2, idx4);
-      });
-    }
-
-    response =
-        await http.get('https://www.monex.com/1-kilo-gold-bars-for-sale/');
-
-    if (response.statusCode == 200) {
-      // If the call to the server was successful, parse the JSON
-
-      String htmlToParse = response.body;
-      int idx1 = htmlToParse.indexOf("bid\">") + 6; //
-      int idx2 = htmlToParse.indexOf("ask\">", idx1) + 6;
-
-      int idx3 = htmlToParse.indexOf("<", idx1);
-      int idx4 = htmlToParse.indexOf("<", idx2);
-
-      setState(() {
-        goldPair[1][1] = htmlToParse.substring(idx1, idx3);
-        goldPair[1][2] = htmlToParse.substring(idx2, idx4);
-      });
-    }
-
-    response = await http
-        .get('http://www.livepriceofgold.com/eur-gold-price-per-kilo.html');
-
-    if (response.statusCode == 200) {
-      // If the call to the server was successful, parse the JSON
-
-      String htmlToParse = response.body;
-      int idx1 = htmlToParse.indexOf("KG in EUR") + 18; //KG in EUR</td><td>
-      int idx2 = htmlToParse.indexOf("</td><td>", idx1) + 9;
-
-      int idx3 = htmlToParse.indexOf("<", idx1);
-      int idx4 = htmlToParse.indexOf("<", idx2);
-
-      setState(() {
-        goldPair[2][1] = htmlToParse.substring(idx1, idx3);
-        goldPair[2][2] = htmlToParse.substring(idx2, idx4);
-      });
-    }
-
-    response = await http.get('https://www.investing.com/currencies/gau-try');
-
-    if (response.statusCode == 200) {
-      // If the call to the server was successful, parse the JSON
-
-      String htmlToParse = response.body;
-      int idx1 = htmlToParse.indexOf("bid\">") + 5;
-      int idx2 = htmlToParse.indexOf("ask\">", idx1) + 5;
-
-      int idx3 = htmlToParse.indexOf("<", idx1);
-      int idx4 = htmlToParse.indexOf("<", idx2);
-
-      setState(() {
-        goldPair[3][1] = htmlToParse.substring(idx1, idx3);
-        goldPair[3][2] = htmlToParse.substring(idx2, idx4);
-      });
-    }
-
-    response = await http.get(
-        'https://www.goldrate24.com/gold-prices/north-america/united_states/ounce/14K/');
-
-    if (response.statusCode == 200) {
-      // If the call to the server was successful, parse the JSON
-
-      String htmlToParse = response.body;
-      int idx1 = htmlToParse.indexOf("Bid Price") + 18; //Bid Price</td><td>
-      int idx2 = htmlToParse.indexOf("Ask Price", idx1) + 18;
-
-      int idx3 = htmlToParse.indexOf(" ", idx1);
-      int idx4 = htmlToParse.indexOf(" ", idx2);
-
-      setState(() {
-        goldPair[4][1] = htmlToParse.substring(idx1, idx3);
-        goldPair[4][2] = htmlToParse.substring(idx2, idx4);
-      });
-    }
-
-    response = await http.get(
-        'https://www.goldrate24.com/gold-prices/north-america/united_states/ounce/22K/');
-
-    if (response.statusCode == 200) {
-      // If the call to the server was successful, parse the JSON
-
-      String htmlToParse = response.body;
-      int idx1 = htmlToParse.indexOf("Bid Price") + 18; //
-      int idx2 = htmlToParse.indexOf("Ask Price", idx1) + 18;
-
-      int idx3 = htmlToParse.indexOf(" ", idx1);
-      int idx4 = htmlToParse.indexOf(" ", idx2);
-
-      setState(() {
-        goldPair[5][1] = htmlToParse.substring(idx1, idx3);
-        goldPair[5][2] = htmlToParse.substring(idx2, idx4);
-      });
-    }
-
-    response = await http.get('https://www.investing.com/currencies/xag-usd');
-
-    if (response.statusCode == 200) {
-      // If the call to the server was successful, parse the JSON
-
-      String htmlToParse = response.body;
-      int idx1 = htmlToParse.indexOf("bid\">") + 5; //
-      int idx2 = htmlToParse.indexOf("ask\">", idx1) + 5;
-
-      int idx3 = htmlToParse.indexOf("<", idx1);
-      int idx4 = htmlToParse.indexOf("<", idx2);
-
-      setState(() {
-        goldPair[6][1] = htmlToParse.substring(idx1, idx3);
-        goldPair[6][2] = htmlToParse.substring(idx2, idx4);
-      });
-    }
-
-    response = await http.get('https://www.investing.com/currencies/xagg-try');
-
-    if (response.statusCode == 200) {
-      // If the call to the server was successful, parse the JSON
-
-      String htmlToParse = response.body;
-      int idx1 = htmlToParse.indexOf("bid\">") + 5; //
-      int idx2 = htmlToParse.indexOf("ask\">", idx1) + 5;
-
-      int idx3 = htmlToParse.indexOf("<", idx1);
-      int idx4 = htmlToParse.indexOf("<", idx2);
-
-      setState(() {
-        goldPair[7][1] = htmlToParse.substring(idx1, idx3);
-        goldPair[7][2] = htmlToParse.substring(idx2, idx4);
-      });
-    }
-
-    response = await http.get('https://www.investing.com/currencies/xpt-usd');
-
-    if (response.statusCode == 200) {
-      // If the call to the server was successful, parse the JSON
-
-      String htmlToParse = response.body;
-      int idx1 = htmlToParse.indexOf("bid\">") + 5; //
-      int idx2 = htmlToParse.indexOf("ask\">", idx1) + 5;
-
-      int idx3 = htmlToParse.indexOf("<", idx1);
-      int idx4 = htmlToParse.indexOf("<", idx2);
-
-      setState(() {
-        goldPair[8][1] = htmlToParse.substring(idx1, idx3);
-        goldPair[8][2] = htmlToParse.substring(idx2, idx4);
-      });
-    }
-
-    response = await http.get('https://www.investing.com/currencies/xpd-usd');
-
-    if (response.statusCode == 200) {
-      // If the call to the server was successful, parse the JSON
-
-      String htmlToParse = response.body;
-      int idx1 = htmlToParse.indexOf("bid\">") + 5; //
-      int idx2 = htmlToParse.indexOf("ask\">", idx1) + 5;
-
-      int idx3 = htmlToParse.indexOf("<", idx1);
-      int idx4 = htmlToParse.indexOf("<", idx2);
-
-      setState(() {
-        goldPair[9][1] = htmlToParse.substring(idx1, idx3);
-        goldPair[9][2] = htmlToParse.substring(idx2, idx4);
-      });
-    }
-  }
-
-  List<DataRow> rows = List.filled(17, DataRow(cells: <DataCell>[]));
+  List<DataRow> rows = List<DataRow>(17);
 
   void setTable() {
+
     for (int i = 0; i < currencyPair.length; i++) {
       rows[i] = DataRow(
         cells: <DataCell>[
@@ -358,8 +169,8 @@ class _MyHomePageState extends State<MyHomePage>
                 builder: (BuildContext context) => Charts(
                   title: widget.title,
                   symbol: currencyPair[i][0],
-                  value: (double.parse(currencyPair[i][1]) +
-                          double.parse(currencyPair[i][2])) /
+                  value: (round_to_4(double.parse(currencyPair[i][1])) +
+                      round_to_4(double.parse(currencyPair[i][2]))) /
                       2,
                 ),
               ));
@@ -368,24 +179,23 @@ class _MyHomePageState extends State<MyHomePage>
     }
   }
 
-  List<DataRow> rows1 = List.filled(10, DataRow(cells: <DataCell>[]));
-
-  void setGoldTable() {
-    for (int i = 0; i < goldPair.length; i++) {
-      rows1[i] = DataRow(
-        cells: <DataCell>[
-          DataCell(Text(goldPair[i][0], textScaleFactor: 1.5)),
-          DataCell(Text(goldPair[i][1],
-              textScaleFactor: 1.5,
-              style: TextStyle(color: Colors.green),
-              textAlign: TextAlign.right)),
-          DataCell(Text(goldPair[i][2],
-              textScaleFactor: 1.5,
-              style: TextStyle(color: Colors.red),
-              textAlign: TextAlign.right)),
-        ],
-      );
-    }
+  void _onItemTapped(int index) {
+      if(index == 1)
+      {
+        Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (BuildContext context) => goldRate(),
+            ));
+      }
+      else if(index == 2)
+      {
+        Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (BuildContext context) => Convert(),
+            ));
+      }
   }
 
   @override
@@ -398,170 +208,114 @@ class _MyHomePageState extends State<MyHomePage>
     // than having to individually change instances of widgets.
 
     this.setTable();
-    this.setGoldTable();
-    return DefaultTabController(
-        initialIndex: widget.p_idx,
-        length: 2,
-        child: Scaffold(
-            appBar: AppBar(
-              // Here we take the value from the MyHomePage object that was created by
-              // the App.build method, and use it to set our appbar title.
 
-              title: Row(children: <Widget>[
-                Image.asset(
-                  'images/logobig.png',
-                  width: 50.0,
-                  height: 50.0,
-                ),
-                Text(widget.title),
-              ]),
-              backgroundColor: Colors.blue,
+    return Scaffold(
+        appBar: AppBar(
+          // Here we take the value from the MyHomePage object that was created by
+          // the App.build method, and use it to set our appbar title.
+
+          title: Row(children: <Widget>[
+            Image.asset(
+              'images/logobig.png',
+              width: 40.0,
+              height: 40.0,
             ),
-            body: TabBarView(controller: _controller, children: [
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.vertical,
-                  child: Column(children: <Widget>[
-                    Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: Text(
-                        "Currency Exchange Rates",
-                        textScaleFactor: 1,
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                    DataTable(
-                      // textDirection: TextDirection.rtl,
-                      // defaultVerticalAlignment: TableCellVerticalAlignment.bottom,
-                      // border:TableBorder.all(width: 2.0,color: Colors.red),
-                      showCheckboxColumn: false,
-                      columns: const <DataColumn>[
-                        DataColumn(
-                          label: Text(
-                            'Symbol',
-                            style: TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                        ),
-                        DataColumn(
-                          label: Text(
-                            'Buy',
-                            style: TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                        ),
-                        DataColumn(
-                          label: Text(
-                            'Sell',
-                            style: TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                        ),
-                      ],
-                      rows: rows,
-                    ),
-                  ]),
+            Text(widget.title),
+          ]),
+          backgroundColor: Colors.blue,
+        ),
+        body: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: SingleChildScrollView(
+            scrollDirection: Axis.vertical,
+            child: Column(children: <Widget>[
+              Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: Text(
+                  "Currency Exchange Rates",
+                  textScaleFactor: 1,
+                  style: TextStyle(fontWeight: FontWeight.bold),
                 ),
               ),
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.vertical,
-                  child: Column(children: <Widget>[
-                    Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: Text(
-                        "Gold Exchange Rates",
-                        textScaleFactor: 1,
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
+              DataTable(
+                // textDirection: TextDirection.rtl,
+                // defaultVerticalAlignment: TableCellVerticalAlignment.bottom,
+                // border:TableBorder.all(width: 2.0,color: Colors.red),
+                showCheckboxColumn: false,
+                columns: const <DataColumn>[
+                  DataColumn(
+                    label: Text(
+                      'Symbol',
+                      style: TextStyle(fontWeight: FontWeight.bold),
                     ),
-                    DataTable(
-                      // textDirection: TextDirection.rtl,
-                      // defaultVerticalAlignment: TableCellVerticalAlignment.bottom,
-                      // border:TableBorder.all(width: 2.0,color: Colors.red),
-                      showCheckboxColumn: false,
-                      columns: const <DataColumn>[
-                        DataColumn(
-                          label: Text(
-                            'Symbol',
-                            style: TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                        ),
-                        DataColumn(
-                          label: Text(
-                            'Buy',
-                            style: TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                        ),
-                        DataColumn(
-                          label: Text(
-                            'Sell',
-                            style: TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                        ),
-                      ],
-                      rows: rows1,
+                  ),
+                  DataColumn(
+                    label: Text(
+                      'Buy',
+                      style: TextStyle(fontWeight: FontWeight.bold),
                     ),
-                  ]),
-                ),
+                  ),
+                  DataColumn(
+                    label: Text(
+                      'Sell',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ],
+                rows: rows,
               ),
             ]),
-            bottomNavigationBar: Material(
-                color: Colors.white,
-                child: TabBar(
-                  controller: _controller,
-                  indicatorColor: Color.fromRGBO(43, 73, 193, 0.4),
-                  tabs: list,
-                ))));
+          ),
+        ),
+      bottomNavigationBar: BottomNavigationBar(
+        items: <BottomNavigationBarItem>[
+          BottomNavigationBarItem(
+            icon: Image.asset('images/dollar_world_grid_selected.png',
+              width: 46.0,
+              height: 46.0,
+            ),
+            label: 'Currency',
+          ),
+          BottomNavigationBarItem(
+            icon: Image.asset(
+              'images/gold-bars.png',
+              width: 46.0,
+              height: 46.0,
+            ),
+            label: 'Gold',
+          ),
+          BottomNavigationBarItem(
+            icon: Image.asset(
+              'images/curr_conv1.png',
+              width: 46.0,
+              height: 46.0,
+            ),
+            label: 'Convert',
+          )
+        ],
+        currentIndex: 0,
+        unselectedItemColor: Color.fromRGBO(127, 127, 127, 0.4),
+        selectedItemColor: Color.fromRGBO(43, 73, 193, 0.4),
+        onTap: _onItemTapped,
+      ),);
   }
 
   @override
   void initState() {
     super.initState();
 
-    // Create TabController for getting the index of current tab
-    _controller = TabController(length: list.length, vsync: this);
-
-    _controller.addListener(() {
-      setState(() {
-        _selectedIndex = _controller.index;
-
-        list = [
-          Tab(
-            icon: Image.asset(
-              _selectedIndex == 0
-                  ? 'images/dollar_world_grid_selected.png'
-                  : 'images/dollar_world_grid.png',
-              width: 46.0,
-              height: 46.0,
-            ),
-            child: Text(
-              "Currency",
-              style: TextStyle(
-                  color: _selectedIndex == 0
-                      ? Color.fromRGBO(43, 73, 193, 0.4)
-                      : Color.fromRGBO(127, 127, 127, 0.4)),
-            ),
-          ),
-          Tab(
-              icon: Image.asset(
-                _selectedIndex == 1
-                    ? 'images/gold-bars-selected.png'
-                    : 'images/gold-bars.png',
-                width: 46.0,
-                height: 46.0,
-              ),
-              child: Text(
-                "Gold",
-                style: TextStyle(
-                    color: _selectedIndex == 1
-                        ? Color.fromRGBO(43, 73, 193, 0.4)
-                        : Color.fromRGBO(127, 127, 127, 0.4)),
-              )),
-        ];
-      });
+    _timer = Timer.periodic(Duration(seconds: 5), (Timer t)
+    {
+      if (!dispos) {
+        this.fetchPairValue();
+      }
     });
-
-    this.fetchPairValue();
-    this.fetchMetalValue();
   }
+
+  @override
+  void dispose() {
+    dispos = true;
+    _timer.cancel;
+    super.dispose();
+}
 }

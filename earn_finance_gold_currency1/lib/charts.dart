@@ -5,14 +5,11 @@ import 'dart:convert';
 import 'package:graphic/graphic.dart' as graphic;
 
 import 'main.dart';
+import 'gold.dart';
+import 'convert.dart';
 
 class Charts extends StatefulWidget {
-  Charts(
-      {Key key = const Key("any_key"),
-      required this.title,
-      required this.symbol,
-      required this.value})
-      : super(key: key);
+  Charts({Key key, this.title = 'We Earn Finance', this.symbol, this.value}) : super(key: key);
 
   // This widget is the home page of your application. It is stateful, meaning
   // that it has a State object (defined below) that contains fields that affect
@@ -57,7 +54,7 @@ class _ChartsState extends State<Charts> with SingleTickerProviderStateMixin {
 
   List<int> ms = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
 
-  late TabController _controller;
+  TabController _controller;
   int _selectedIndex = 0;
 
   List<Widget> list = [
@@ -111,7 +108,7 @@ class _ChartsState extends State<Charts> with SingleTickerProviderStateMixin {
       int i = sortedKeys[0].toString()[sortedKeys[0].length - 4] == '5' ? 1 : 0;
 
       high[0] = 0;
-      low[0] = 999999999;
+      low[0] = 999999999.0;
 
       //print('size1: ' + sortedKeys.length.toString());
 
@@ -211,8 +208,11 @@ class _ChartsState extends State<Charts> with SingleTickerProviderStateMixin {
 
       //print('size3: ' + sortedKeys.length.toString());
 
+      int x = int.parse(m2)-1;
+      String ms1 = x > 0 ? x.toString() : '12';
+
       setState(() {
-        while (m2 == m1 || (d2.compareTo(d1) > 0) || (h2.compareTo(h1) > 0)) {
+        while (m2 == m1 || (ms1 == m2 && d2.compareTo(d1) > 0) || (h2.compareTo(h1) >= 0)) {
           mData.insert(0, {
             'Date': sortedKeys[j].toString().substring(0, 10),
             'Close': double.parse(sortedValues[j])
@@ -267,7 +267,7 @@ class _ChartsState extends State<Charts> with SingleTickerProviderStateMixin {
       //print('size4: ' + dSortedKeys.length.toString());
 
       setState(() {
-        while (m2 != x || (d2.compareTo(d1) > 0)) {
+        while (m2 != x || (m2 == x && d2.compareTo(d1) > 0)) {
           m6Data.insert(0, {
             'Date': dSortedKeys[j],
             'Close': double.parse(dSortedValues[j])
@@ -280,6 +280,14 @@ class _ChartsState extends State<Charts> with SingleTickerProviderStateMixin {
           m2 = int.parse(dSortedKeys[j].toString().substring(5, 7));
           d2 = dSortedKeys[j].toString().substring(8, 10);
         }
+
+        m6Data.insert(0, {
+          'Date': dSortedKeys[j],
+          'Close': double.parse(dSortedValues[j])
+        });
+
+        high[3] = max(m6Data.first['Close'].toDouble(), high[3]);
+        low[3] = min(m6Data.first['Close'].toDouble(), low[3]);
 
         open[3] = m6Data[0]['Close'].toDouble();
         close[3] = m6Data[m6Data.length - 1]['Close'].toDouble();
@@ -306,8 +314,10 @@ class _ChartsState extends State<Charts> with SingleTickerProviderStateMixin {
     high[4] = 0.0;
     low[4] = 999999999.0;
 
+    String y3 = (int.parse(y2)-1).toString();
+
     setState(() {
-      while (y1 == y2 || (m2.compareTo(m1) > 0) || (d2.compareTo(d1) > 0)) {
+      while (y1 == y2 || (y2 == y3 && m2.compareTo(m1) > 0) || (m2 == m1 && d2.compareTo(d1) > 0)) {
         yData.insert(0,
             {'Date': dSortedKeys[j], 'Close': double.parse(dSortedValues[j])});
 
@@ -320,6 +330,12 @@ class _ChartsState extends State<Charts> with SingleTickerProviderStateMixin {
         d2 = dSortedKeys[j].toString().substring(8, 10);
       }
 
+      yData.insert(0,
+          {'Date': dSortedKeys[j], 'Close': double.parse(dSortedValues[j])});
+
+      high[4] = max(yData.first['Close'].toDouble(), high[4]);
+      low[4] = min(yData.first['Close'].toDouble(), low[4]);
+
       open[4] = yData[0]['Close'].toDouble();
       close[4] = yData[yData.length - 1]['Close'].toDouble();
     });
@@ -329,9 +345,8 @@ class _ChartsState extends State<Charts> with SingleTickerProviderStateMixin {
     int j = 0;
 
     //2020-10-26
-    int y1 = int.parse(dSortedKeys[0].toString().substring(0, 4));
     int y2 = int.parse(dSortedKeys[0].toString().substring(0, 4));
-    int x = y1 - 5;
+    int x = y2 - 5;
 
     String m1 = dSortedKeys[0].toString().substring(5, 7);
     String m2 = dSortedKeys[0].toString().substring(5, 7);
@@ -342,8 +357,10 @@ class _ChartsState extends State<Charts> with SingleTickerProviderStateMixin {
     high[5] = 0;
     low[5] = 999999999;
 
+    print("year: "+x.toString() + " Month: "+ m1 + "Day: " + d1);
+
     setState(() {
-      while (y2 > x || (m2.compareTo(m1) > 0) || (d2.compareTo(d1) > 0)) {
+      while (y2 > x || (y2 == x && m2.compareTo(m1) > 0) || (m2 == m1 && d2.compareTo(d1) > 0)) {
         y5Data.insert(0,
             {'Date': dSortedKeys[j], 'Close': double.parse(dSortedValues[j])});
 
@@ -354,7 +371,14 @@ class _ChartsState extends State<Charts> with SingleTickerProviderStateMixin {
         y2 = int.parse(dSortedKeys[j].toString().substring(0, 4));
         m2 = dSortedKeys[j].toString().substring(5, 7);
         d2 = dSortedKeys[j].toString().substring(8, 10);
+        print("year: "+y2.toString() + " Month: "+ m2 + "Day: " + d2);
       }
+
+      y5Data.insert(0,
+          {'Date': dSortedKeys[j], 'Close': double.parse(dSortedValues[j])});
+
+      high[5] = max(y5Data.first['Close'].toDouble(), high[5]);
+      low[5] = min(y5Data.first['Close'].toDouble(), low[5]);
 
       open[5] = y5Data[0]['Close'].toDouble();
       close[5] = y5Data[y5Data.length - 1]['Close'].toDouble();
@@ -412,6 +436,11 @@ class _ChartsState extends State<Charts> with SingleTickerProviderStateMixin {
       child: Center(
         child: Column(
           children: <Widget>[
+
+            Padding(child: Text(widget.symbol + ": " + widget.value.toString(),
+                style: TextStyle(fontSize: 20)),
+              padding: EdgeInsets.fromLTRB(0, 10, 0, 0),),
+
             Padding(
               child: Text(symbol + " " + interval + " Chart",
                   style: TextStyle(fontSize: 20)),
@@ -425,7 +454,7 @@ class _ChartsState extends State<Charts> with SingleTickerProviderStateMixin {
                 scales: {
                   'Date': graphic.CatScale(
                     accessor: (map) => map['Date'] as String,
-                    range: [0, 0.96],
+                    range: [0, 0.94],
                     tickCount: 6,
                   ),
                   'Close': graphic.LinearScale(
@@ -497,52 +526,76 @@ class _ChartsState extends State<Charts> with SingleTickerProviderStateMixin {
     );
   }
 
+  void _onItemTapped(int index) {
+
+    if(index == 0)
+    {
+      Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (BuildContext context) => MyHomePage(),
+          ));
+    }
+    else if(index == 1)
+    {
+      Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (BuildContext context) => goldRate(),
+          ));
+    }
+
+    else if(index == 2)
+    {
+      Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (BuildContext context) => Convert(),
+          ));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     // Use the Todo to create the UI.
 
     return WillPopScope(
         onWillPop: () async {
-          Navigator.pushReplacement(
-              context,
-              new MaterialPageRoute(
-                  builder: (context) =>
-                      MyHomePage(title: 'We Earn Finance', p_idx: 0)));
+          Navigator.pushReplacement(context,
+              new MaterialPageRoute(builder: (context) => MyHomePage()));
 
           return true;
         },
         child: Scaffold(
-          appBar: PreferredSize(
-            preferredSize: Size.fromHeight(175.0), // here the desired height
-            child: AppBar(
-              title: Column(children: <Widget>[
+          appBar:
+             AppBar(
+              title:
                 Row(children: <Widget>[
                   Image.asset(
                     'images/logobig.png',
-                    width: 50.0,
-                    height: 50.0,
+                    width: 40.0,
+                    height: 40.0,
                   ),
                   Text(widget.title),
                 ]),
-                Text(widget.symbol + ": " + widget.value.toString())
-              ]),
+
               leading: new IconButton(
                 icon: new Icon(Icons.arrow_back),
                 onPressed: () {
                   Navigator.pushReplacement(
                       context,
                       new MaterialPageRoute(
-                          builder: (context) =>
-                              MyHomePage(title: 'We Earn Finance', p_idx: 0)));
+                          builder: (context) => MyHomePage()));
                 },
               ),
               backgroundColor: Colors.blue,
               bottom: TabBar(
                 controller: _controller,
+                isScrollable: true,
                 tabs: list,
               ),
             ),
-          ),
+
           backgroundColor: Colors.white,
           body: TabBarView(
             controller: _controller,
@@ -563,6 +616,37 @@ class _ChartsState extends State<Charts> with SingleTickerProviderStateMixin {
                   widget.symbol, "Max")
             ],
           ),
+            bottomNavigationBar: BottomNavigationBar(
+        items: <BottomNavigationBarItem>[
+        BottomNavigationBarItem(
+          icon: Image.asset('images/dollar_world_grid_selected.png',
+          width: 46.0,
+          height: 46.0,
+        ),
+      label: 'Currency',
+    ),
+    BottomNavigationBarItem(
+    icon: Image.asset(
+    'images/gold-bars.png',
+    width: 46.0,
+    height: 46.0,
+    ),
+    label: 'Gold',
+    ),
+          BottomNavigationBarItem(
+            icon: Image.asset(
+              'images/curr_conv1.png',
+              width: 46.0,
+              height: 46.0,
+            ),
+            label: 'Convert',
+          )
+    ],
+    currentIndex: 0,
+    unselectedItemColor: Color.fromRGBO(127, 127, 127, 0.4),
+    selectedItemColor: Color.fromRGBO(43, 73, 193, 0.4),
+    onTap: _onItemTapped,
+    )
         ));
   }
 }
